@@ -10,8 +10,11 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 
-
 using namespace ns3;
+
+
+// Set the documentation name
+NS_LOG_COMPONENT_DEFINE ("TCPThroughtputMeasurements");
 
 
 namespace
@@ -22,6 +25,11 @@ const int ECHO_SERVER_PORT = 9;
 
 int main (int argc, char* argv[])
 {
+    // ===== Simulation Configs =====
+    // Set the log levels
+    LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
+    LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
+
     // 1 ns time resolution, the default value
     Time::SetResolution(Time::NS);
 
@@ -60,7 +68,7 @@ int main (int argc, char* argv[])
     // ===== Internet Stack Assignment =====
     // Set IPv4, IPv6, UDP, & TCP stacks to all nodes in the simulation
     InternetStackHelper stack;
-    stack.InstallAll(); 
+    stack.InstallAll();
 
 
     // ===== IPv4 Addresses ======
