@@ -4,7 +4,6 @@
  *  Project 1
  */
 
-
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
@@ -19,9 +18,6 @@ namespace
 {
 const int ECHO_SERVER_PORT = 9;
 }
-
-
-NS_LOG_COMPONENT_DEFINE ("TCPThroughputMeasurements");
 
 
 int main (int argc, char* argv[])
@@ -43,22 +39,22 @@ int main (int argc, char* argv[])
 
     // Set their attributes
     linkA.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
-    linkA.SetChannelAttribute ("Delay", StringValue ("10ms"));
+    linkA.SetChannelAttribute("Delay", StringValue("10ms"));
 
     linkB.SetDeviceAttribute("DataRate", StringValue("1Mbps"));
-    linkB.SetChannelAttribute ("Delay", StringValue ("20ms"));
+    linkB.SetChannelAttribute("Delay", StringValue("20ms"));
 
     linkC.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
-    linkC.SetChannelAttribute ("Delay", StringValue ("10ms"));
+    linkC.SetChannelAttribute("Delay", StringValue("10ms"));
 
 
     // ===== Network Devices =====
     NetDeviceContainer devicesA, devicesB, devicesC;
 
     // Install the devices onto their respective links
-    devicesA = linkA.Install(nodes.Get(1), nodes.Get(2));
-    devicesB = linkB.Install(nodes.Get(2), nodes.Get(3));
-    devicesC = linkC.Install(nodes.Get(3), nodes.Get(4));
+    devicesA = linkA.Install(nodes.Get(0), nodes.Get(1));
+    devicesB = linkB.Install(nodes.Get(1), nodes.Get(2));
+    devicesC = linkC.Install(nodes.Get(2), nodes.Get(3));
 
 
     // ===== Internet Stack Assignment =====
@@ -87,7 +83,7 @@ int main (int argc, char* argv[])
 
     // Add the echo server to an app container
     ApplicationContainer serverApps;
-    serverApps = echoServer.Install(nodes.Get(1));
+    serverApps = echoServer.Install(nodes.Get(0));
 
     // Set start/stop times
     serverApps.Start(Seconds(0.0));
