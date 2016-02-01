@@ -88,25 +88,26 @@ int main (int argc, char* argv[])
 
     // ===== Application Server(s) =====
     UdpEchoServerHelper echoServer(ECHO_SERVER_PORT);
+    ApplicationContainer serverApps;
 
     // Add the echo server to an app container
-    ApplicationContainer serverApps;
     serverApps = echoServer.Install(nodes.Get(0));
 
     // Set start/stop times
     serverApps.Start(Seconds(0.0));
     serverApps.Stop(Seconds(5.0));
 
+    // ===== Application Client(s) =====
     // Simulation a client for the echo server
-    UdpEchoClientHelper echoClient (nicsA.GetAddress(1), ECHO_SERVER_PORT);
+    UdpEchoClientHelper echoClient(nicsA.GetAddress(0), ECHO_SERVER_PORT);
+    ApplicationContainer clientApps;
+
     echoClient.SetAttribute("MaxPackets", UintegerValue(1));
     echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
     echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
-
-    // ===== Application Client(s) =====
     // Add the clients to a different app container
-    ApplicationContainer clientApps;
+    clientApps = echoClient.Install(nodes.Get(0));
     clientApps = echoClient.Install(nodes.Get(0));
 
     // Set start/stop times
