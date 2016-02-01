@@ -20,29 +20,38 @@ NS_LOG_COMPONENT_DEFINE ("TCPThroughtputMeasurements");
 namespace
 {
 const int ECHO_SERVER_PORT = 9;
+const int TCP_SERVER_PORT = 2000;
+const int RAND_NUM_SEED = 11223344;
 }
 
 
 int main (int argc, char* argv[])
 {
     // ===== Simulation Configs =====
-    // Set the log levels
-    LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
-    LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
+    // Set the log levels for this module
+    LogComponentEnable("TCPThroughtputMeasurements", NS_LOG_ALL);
 
     // 1 ns time resolution, the default value
     Time::SetResolution(Time::NS);
+
+    // Go ahead and find the tcp type ID's
+    const TypeId tcpTahoe = TypeId::LookupByName("ns3::TcpTahoe");
+    const TypeId tcpReno = TypeId::LookupByName("ns3::TcpReno");
 
 
     // ===== Nodes =====
     // Create the container used in simulation for
     // representing the computers
+    NS_LOG(LOG_DEBUG, "Creating " << 4 << " nodes");
+
     NodeContainer nodes;
     nodes.Create(4);
 
 
     // ===== PointToPoint Links =====
     // Create 3 point-to-point links
+    NS_LOG(LOG_DEBUG, "Creating point-to-point links");
+
     PointToPointHelper linkA, linkB, linkC;
 
     // Set their attributes
@@ -57,6 +66,8 @@ int main (int argc, char* argv[])
 
 
     // ===== Network Devices =====
+    NS_LOG(LOG_DEBUG, "Creating network interface devices");
+
     NetDeviceContainer devicesA, devicesB, devicesC;
 
     // Install the devices onto their respective links
@@ -65,13 +76,24 @@ int main (int argc, char* argv[])
     devicesC = linkC.Install(nodes.Get(2), nodes.Get(3));
 
 
+    // ===== TCP Type =====
+    // Set the type of TCP that will be used for all simulations
+    NS_LOG(LOG_DEBUG, "Setting default TCP type to Tahoe");
+
+    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpTahoe"));
+
+
     // ===== Internet Stack Assignment =====
     // Set IPv4, IPv6, UDP, & TCP stacks to all nodes in the simulation
+    NS_LOG(LOG_DEBUG, "Setting simulation to use IPv4, IPv6, UDP, & TCP stacks");
+
     InternetStackHelper stack;
     stack.InstallAll();
 
 
     // ===== IPv4 Addresses ======
+    NS_LOG(LOG_DEBUG, "Assigning IPv4 addresses");
+
     Ipv4AddressHelper addrsA, addrsB, addrsC;
     Ipv4InterfaceContainer nicsA, nicsB, nicsC;
 
@@ -86,33 +108,43 @@ int main (int argc, char* argv[])
     nicsC = addrsC.Assign(devicesC);
 
 
+    NS_LOG(LOG_DEBUG, "Device A address: " << nicsA.GetAddress());// << ", " << nicsB.GetAddress().Print() << ", " << nicsC.GetAddress().Print());
+
+
     // ===== Application Server(s) =====
-    UdpEchoServerHelper echoServer(ECHO_SERVER_PORT);
+    // Create a TCP packet sink
+    NS_LOG(LOG_DEBUG, "Creating TCP server on port " << TCP_SERVER_PORT);
+
+    Address tcpSinkAddr(InetSocketAddress(Ipv4Address::GetAny(), TCP_SERVER_PORT));
+    PacketSinkHelper tcpSink("ns3::TcpSocketFactory", tcpSinkAddr);
     ApplicationContainer serverApps;
 
-    // Add the echo server to an app container
-    serverApps = echoServer.Install(nodes.Get(0));
+    // Assign it to the list of app servers
+    serverApps = tcpSink.Install(nodes.Get(0));
 
     // Set start/stop times
     serverApps.Start(Seconds(0.0));
-    serverApps.Stop(Seconds(5.0));
+    serverApps.Stop(Seconds(10.0));
+
 
     // ===== Application Client(s) =====
-    // Simulation a client for the echo server
-    UdpEchoClientHelper echoClient(nicsA.GetAddress(0), ECHO_SERVER_PORT);
+    // Create an application to send TCP data to the server
+    NS_LOG(LOG_DEBUG, "Creating TCP client");
+
+    BulkSendHelper tcpClient("ns3::TcpSocketFactory", nicsB.Get(0));
     ApplicationContainer clientApps;
+
+    // Sending to the server node
+    clientApps = tcpClient.Install(nodes.Get(0));
+    clientApps = tcpClient.Install(nodes.Get(0));
 
     echoClient.SetAttribute("MaxPackets", UintegerValue(1));
     echoClient.SetAttribute("Interval", TimeValue(Seconds(1.0)));
     echoClient.SetAttribute("PacketSize", UintegerValue(1024));
 
-    // Add the clients to a different app container
-    clientApps = echoClient.Install(nodes.Get(0));
-    clientApps = echoClient.Install(nodes.Get(0));
-
     // Set start/stop times
-    clientApps.Start(Seconds(1.0));
-    clientApps.Stop(Seconds(4.0));
+    clientApps.Start(Seconds(0.1));
+    clientApps.Stop(Seconds(10.0));
 
 
     // ===== Run Simulation =====
@@ -124,13 +156,6 @@ int main (int argc, char* argv[])
 }
 
 
-// Create and bind the socket...
-// TypeId tid = TypeId::LookupByName ("ns3::TcpTahoe");
-// std::stringstream nodeId;
-// nodeId << n0n1.Get (0)->GetId ();
-// std::string specificNode = "/NodeList/" + nodeId.str () + "/$ns3::TcpL4Protocol/SocketType";
-// Config::Set (specificNode, TypeIdValue (tid));
-// Ptr<Socket> localSocket =
-//   Socket::CreateSocket (n0n1.Get (0), TcpSocketFactory::GetTypeId ());
+
 
 
