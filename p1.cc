@@ -4,7 +4,8 @@
  *  Project 1
  */
 
-#include <sstream>
+#include <algorithm>
+// #include <sstream>
 #include <string>
 
 #include "ns3/core-module.h"
@@ -28,12 +29,11 @@ NS_LOG_COMPONENT_DEFINE ("TCPThroughtputMeasurements");
 
 namespace
 {
-const int ECHO_SERVER_PORT = 9;
-const int TCP_SERVER_PORT = 2000;
+const int TCP_SERVER_PORT = 8080;
 const int RAND_NUM_SEED = 11223344;
-const std::string flowMonFn = "tcp-flow-results.flowmon";
 const std::string traceBaseFn = "tcp-trace-results";
 }
+
 
 void SetSimConfigs() {
     // Set the log levels for this module
@@ -45,16 +45,15 @@ void SetSimConfigs() {
 
     // 1 ns time resolution, the default value
     Time::SetResolution(Time::NS);
+
+    // The the random number seed globally
+    RngSeedManager::SetSeed(RAND_NUM_SEED);
 }
 
 
 int main (int argc, char* argv[]) {
     // Initial simulation configurations
     SetSimConfigs();
-
-    // Go ahead and find the tcp type ID's
-    const TypeId tcpTahoe = TypeId::LookupByName("ns3::TcpTahoe");
-    const TypeId tcpReno = TypeId::LookupByName("ns3::TcpReno");
 
     // Parse any command line arguments
     CommandLine cmd;
@@ -63,17 +62,20 @@ int main (int argc, char* argv[]) {
     size_t queueSize =  2000;
     size_t nFlows =     1;
     size_t nFlowBytes = 100000000;
-    bool   flowMonEN =  true;
+    std::string tcpType = "Tahoe";
     bool   traceEN =    false;
-    
+
     cmd.AddValue("segSize",    "TCP segment size in bytes", segSize);
     cmd.AddValue("winSize",    "TCP maximum receiver advertised window size in bytes", winSize);
     cmd.AddValue("queueSize",  "Queue limit on the bottleneck link in bytes", queueSize);
     cmd.AddValue("nFlows",     "Number of simultaneous TCP flows", nFlows);
     cmd.AddValue("nFlowBytes", "Number of bytes to send for each TCP flow", nFlowBytes);
-    cmd.AddValue("flowMon",    "Enable/Disable flow monitoring", flowMonEN);
+    cmd.AddValue("tcpType",     "Simulate using Tahoe or Reno", tcpType);
     cmd.AddValue("trace",      "Enable/Disable dumping the trace at the TCP sink", traceEN);
     cmd.Parse(argc, argv);
+
+    // convert the tcpType argument's value to lower case always
+    std::transform(tcpType.begin(), tcpType.end(), tcpType.begin(), ::tolower);
 
 
     // ===== Nodes =====
@@ -114,12 +116,19 @@ int main (int argc, char* argv[]) {
     devicesC = linkC.Install(nodes.Get(2), nodes.Get(3));
 
 
-    // ===== TCP Type =====
-    // Set the type of TCP that will be used for all simulations
-    NS_LOG(LOG_DEBUG, "Setting default TCP type to Tahoe");
+    TypeId typeDev = NetDevice::GetTypeId();
+    for (size_t j = 0; j < typeDev.GetAttributeN(); ++j) {
+        NS_LOG(LOG_INFO, typeDev.GetName() << " => " << typeDev.GetAttributeFullName(j));
+    }
 
-    // Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpTahoe"));
-    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpReno"));
+    // for (size_t i = 0; i < devicesB.GetN(); ++i) {
+    //     Ptr<NetDevice> netDev = devicesB.Get(i);
+    //     TypeId typeDev = NetDevice::GetTypeId();
+    //     // devicesB.Get(i)
+    //     for (size_t j = 0; j < netDev->GetAttributeN(); ++j) {
+    //         NS_LOG(LOG_INFO, netDev->GetAttribute() << netDev->GetAttributeFullName(j));
+    //     }
+    // }
 
 
     // ===== Internet Stack Assignment =====
@@ -149,6 +158,26 @@ int main (int argc, char* argv[]) {
     // Enable IPv4 routing
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
+
+    // ===== TCP Type =====
+    // Set the type of TCP that will be used for all simulations
+
+    if (tcpType.compare("reno") == 0) {
+        Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpReno"));
+        NS_LOG(LOG_DEBUG, "Setting default TCP type to Reno");
+    }
+    else {
+        Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpTahoe"));
+        NS_LOG(LOG_DEBUG, "Setting default TCP type to Tahoe");
+    }
+
+    // Set the default segment size used for all TCP connections
+    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(segSize));
+
+
+    // Config::Set("/NodeList/[i]/ApplicationList/[i]/$ns3::BulkSendApplication");
+
+
     // The TCP sink address
     Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_PORT));
 
@@ -161,10 +190,8 @@ int main (int argc, char* argv[]) {
 
     // Set the attributes for how we send the data
     tcpSource.SetAttribute("MaxBytes", UintegerValue(nFlowBytes));
-    // tcpSource.SetAttribute("SendSize", UintegerValue(segSize));
 
     // Socket tcpSock = tcpSource.GetSocket();
-    
 
     // Sending to the server node
     clientApps = tcpSource.Install(nodes.Get(nodes.GetN() - 1));
@@ -182,7 +209,8 @@ int main (int argc, char* argv[]) {
     PacketSinkHelper tcpSink("ns3::TcpSocketFactory", tcpSinkAddr);
     ApplicationContainer serverApps;
 
-    // tcpSink.SetAttribute("SegmentSize", UintegerValue(segSize));
+    // ----- // tcpSink.SetAttribute("SegmentSize", UintegerValue(segSize));-----
+
     // tcpSink.SetAttribute("MaxWindowSize", UintegerValue(winSize));
     // tcpSink.SetAttribute("QueueSize", UintegerValue(queueSize));
 
@@ -195,7 +223,7 @@ int main (int argc, char* argv[]) {
     // Set up tracing if enabled
     if (traceEN == true) {
         AsciiTraceHelper ascii;
-        linkA.EnableAsciiAll(ascii.CreateFileStream(std::string(traceBaseFn + "tr").c_str()));
+        linkA.EnableAsciiAll(ascii.CreateFileStream(std::string(traceBaseFn + "tr")));
         linkA.EnablePcapAll("tcp-bulk-send", false);
     }
 
