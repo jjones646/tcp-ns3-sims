@@ -41,7 +41,7 @@ void SetSimConfigs() {
 
     // Set the log levels for the bulk TCP transfer applications
     // LogComponentEnable("BulkSendApplication", LOG_LEVEL_ALL);
-    LogComponentEnable("PacketSink", LOG_LEVEL_ALL);
+    // LogComponentEnable("PacketSink", LOG_LEVEL_ALL);
 
     // 1 ns time resolution, the default value
     Time::SetResolution(Time::NS);
