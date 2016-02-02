@@ -149,6 +149,17 @@ int main (int argc, char* argv[]) {
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
 
+    // ===== Other TCP Configs =====
+    // Set the default segment size used for all TCP connections
+    NS_LOG(LOG_INFO, "Setting TCP segment size to " << segSize << " bytes");
+    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(segSize));
+
+    // Set the default max window size for all TCP connections
+    NS_LOG(LOG_INFO, "Setting TCP max advertised window size to " << winSize << " bytes");
+    Config::SetDefault("ns3::TcpSocketBase::MaxWindowSize", UintegerValue(winSize));
+    Config::SetDefault("ns3::TcpSocket::RcvBufSize", UintegerValue(winSize));
+
+
     // ===== TCP Type =====
     // Set the type of TCP that will be used for all simulations
     if (tcpType.compare("reno") == 0) {
@@ -159,20 +170,6 @@ int main (int argc, char* argv[]) {
         Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpTahoe"));
         NS_LOG(LOG_INFO, "Using TCP TAHOE");
     }
-
-
-    // ===== Other TCP Configs =====
-    // Set the default segment size used for all TCP connections
-    NS_LOG(LOG_INFO, "Setting TCP segment size to " << segSize << " bytes");
-    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(segSize));
-
-    // Set the default max window size for all TCP connections
-    NS_LOG(LOG_INFO, "Setting TCP max advertised window size to " << winSize << " bytes");
-    Config::SetDefault("ns3::TcpSocketBase::MaxWindowSize", UintegerValue(winSize));
-
-
-    // The TCP sink address
-
 
 
     // ===== Application Client(s) =====
@@ -231,8 +228,8 @@ int main (int argc, char* argv[]) {
 
     // Set up tracing if enabled
     if (traceEN == true) {
-        AsciiTraceHelper ascii;
-        linkA.EnableAsciiAll(ascii.CreateFileStream(pcapFn + ".tr"));
+        // AsciiTraceHelper ascii;
+        // linkA.EnableAsciiAll(ascii.CreateFileStream(pcapFn + ".tr"));
         linkA.EnablePcapAll(pcapFn, false);
     }
 

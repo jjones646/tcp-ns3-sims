@@ -54,7 +54,6 @@ NUM_FLOWS=(1 10)
 BYTES_PER_FLOW=100000000
 
 TCP_TYPE="tahoe"
-
 for n in "${NUM_FLOWS[@]}"; do
     for i in "${WINDOW_SIZES[@]}"; do
         for j in "${QUEUE_LIMITS[@]}"; do
@@ -68,14 +67,12 @@ for n in "${NUM_FLOWS[@]}"; do
         wait
     done
 done
-
 wait
 
 cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
 cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv
 
 TCP_TYPE="reno"
-
 for n in "${NUM_FLOWS[@]}"; do
     for i in "${WINDOW_SIZES[@]}"; do
         for j in "${QUEUE_LIMITS[@]}"; do
@@ -89,7 +86,6 @@ for n in "${NUM_FLOWS[@]}"; do
         wait
     done
 done
-
 wait
 
 cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
