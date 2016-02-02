@@ -227,11 +227,8 @@ int main (int argc, char* argv[]) {
     }
 
     // Set up tracing if enabled
-    if (traceEN == true) {
-        // AsciiTraceHelper ascii;
-        // linkA.EnableAsciiAll(ascii.CreateFileStream(pcapFn + ".tr"));
-        linkA.EnablePcapAll(pcapFn, false);
-    }
+    if (traceEN == true)
+        linkA.EnablePcap(pcapFn, devicesA.Get(0), true);
 
     // ===== Run Simulation =====
     NS_LOG(LOG_INFO, "Starting simulation");
