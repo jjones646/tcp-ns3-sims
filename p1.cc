@@ -38,6 +38,7 @@ const std::string traceBaseFn = "tcp-trace-results";
 void SetSimConfigs() {
     // Set the log levels for this module
     LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
+    LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_INFO);
 
     // Set the log levels for the bulk TCP transfer applications
     // LogComponentEnable("BulkSendApplication", LOG_LEVEL_ALL);
@@ -115,19 +116,9 @@ int main (int argc, char* argv[]) {
     devicesB = linkB.Install(nodes.Get(1), nodes.Get(2));
     devicesC = linkC.Install(nodes.Get(2), nodes.Get(3));
 
-
-    TypeId typeDev = NetDevice::GetTypeId();
-    for (size_t j = 0; j < typeDev.GetAttributeN(); ++j) {
-        NS_LOG(LOG_INFO, typeDev.GetName() << " => " << typeDev.GetAttributeFullName(j));
-    }
-
-    // for (size_t i = 0; i < devicesB.GetN(); ++i) {
-    //     Ptr<NetDevice> netDev = devicesB.Get(i);
-    //     TypeId typeDev = NetDevice::GetTypeId();
-    //     // devicesB.Get(i)
-    //     for (size_t j = 0; j < netDev->GetAttributeN(); ++j) {
-    //         NS_LOG(LOG_INFO, netDev->GetAttribute() << netDev->GetAttributeFullName(j));
-    //     }
+    // TypeId typeDev = NetDevice::GetTypeId();
+    // for (size_t j = 0; j < typeDev.GetAttributeN(); ++j) {
+    //     NS_LOG(LOG_INFO, typeDev.GetName() << " => " << typeDev.GetAttributeFullName(j));
     // }
 
 
@@ -161,45 +152,53 @@ int main (int argc, char* argv[]) {
 
     // ===== TCP Type =====
     // Set the type of TCP that will be used for all simulations
-
     if (tcpType.compare("reno") == 0) {
         Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpReno"));
-        NS_LOG(LOG_DEBUG, "Setting default TCP type to Reno");
+        NS_LOG(LOG_INFO, "Using TCP RENO");
     }
     else {
         Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpTahoe"));
-        NS_LOG(LOG_DEBUG, "Setting default TCP type to Tahoe");
+        NS_LOG(LOG_INFO, "Using TCP TAHOE");
     }
 
     // Set the default segment size used for all TCP connections
+    NS_LOG(LOG_INFO, "Setting TCP segment size to " << segSize << " bytes");
     Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(segSize));
 
-
-    // Config::Set("/NodeList/[i]/ApplicationList/[i]/$ns3::BulkSendApplication");
-
+    // Set the default max window size for all TCP connections
+    NS_LOG(LOG_INFO, "Setting TCP max advertised window size to " << winSize << " bytes");
+    Config::SetDefault("ns3::TcpSocketBase::MaxWindowSize", UintegerValue(winSize));
 
     // The TCP sink address
     Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_PORT));
+
 
     // ===== Application Client(s) =====
     // Create an application to send TCP data to the server
     NS_LOG(LOG_DEBUG, "Creating " << nFlows << " TCP flow" << (nFlows == 1 ? "" : "s"));
 
-    BulkSendHelper tcpSource("ns3::TcpSocketFactory", tcpSinkAddr);
+    // App container for holding all of the TCP flows
     ApplicationContainer clientApps;
 
-    // Set the attributes for how we send the data
-    tcpSource.SetAttribute("MaxBytes", UintegerValue(nFlowBytes));
+    // Create the random variable object for setting the initial flow start times
+    Ptr<UniformRandomVariable> randVar = CreateObject<UniformRandomVariable>();
 
-    // Socket tcpSock = tcpSource.GetSocket();
+    for (size_t i = 0; i < nFlows; ++i) {
+        BulkSendHelper tcpSource("ns3::TcpSocketFactory", tcpSinkAddr);
+        ApplicationContainer tcpFlow;
 
-    // Sending to the server node
-    clientApps = tcpSource.Install(nodes.Get(nodes.GetN() - 1));
+        // Set the attributes for how we send the data
+        tcpSource.SetAttribute("MaxBytes", UintegerValue(nFlowBytes));
 
-    NS_LOG(LOG_INFO, "TCP flow created from " << nicsC.GetAddress(0));
+        // Sending to the server node
+        tcpFlow = tcpSource.Install(nodes.Get(nodes.GetN() - 1));
 
-    // Set start/stop times
-    clientApps.Start(Seconds(0.1));
+        // Set the starting time to some uniformly distributed random time between 0.0s and 0.1s
+        tcpFlow.Start(Seconds(0.1 * (randVar->GetValue(0, randVar->GetMax()) / randVar->GetMax())));
+
+        // Add this app container to the object holding all of our source flow apps
+        clientApps.Add(tcpFlow);
+    }
 
 
     // ===== Application Server(s) =====
@@ -208,11 +207,6 @@ int main (int argc, char* argv[]) {
 
     PacketSinkHelper tcpSink("ns3::TcpSocketFactory", tcpSinkAddr);
     ApplicationContainer serverApps;
-
-    // ----- // tcpSink.SetAttribute("SegmentSize", UintegerValue(segSize));-----
-
-    // tcpSink.SetAttribute("MaxWindowSize", UintegerValue(winSize));
-    // tcpSink.SetAttribute("QueueSize", UintegerValue(queueSize));
 
     // Assign it to the list of app servers
     serverApps = tcpSink.Install(nodes.Get(0));
@@ -239,7 +233,7 @@ int main (int argc, char* argv[]) {
 
     // Print out the overall goodput
     Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(0));
-    NS_LOG(LOG_INFO, "goodput, " << sinkApp->GetTotalRx() / endTime);
+    NS_LOG(LOG_ALL, "goodput, " << sinkApp->GetTotalRx() / endTime);
 
 
     return 0;

@@ -14,7 +14,7 @@ kill_all_sims ()
 
 on_exit ()
 {
-    popd &>/dev/null
+    # popd &>/dev/null
 
     if [ "$1" ]; then
         exit $1
@@ -26,20 +26,33 @@ on_exit ()
 trap kill_all_sims SIGINT
 trap on_exit EXIT
 
+function run_waf {
+    CWD="$PWD"
+    cd $NS3DIR >/dev/null
+    ./waf --cwd="$CWD" "$@"
+    cd - >/dev/null
+}
 
 WINDOW_SIZES=(2000 8000 32000 64000)
 QUEUE_LIMITS=(2000 8000 32000 64000)
 SEGMENT_SIZES=(128 256 512)
 NUM_FLOWS=(1 10)
 
-pushd "$NS3DIR" &>/dev/null
+TCP_TYPE="tahoe"
+# TCP_TYPE="reno"
+
+BYTES_PER_FLOW=200000
+# BYTES_PER_FLOW=100000000
+
+# pushd "$NS3DIR" &>/dev/null
 
 for n in "${NUM_FLOWS[@]}"; do
     for i in "${WINDOW_SIZES[@]}"; do
         for j in "${QUEUE_LIMITS[@]}"; do
             for k in "${SEGMENT_SIZES[@]}"; do
-                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n"
-                "$NS3DIR"/waf --run "$WAF_CMD" &
+                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=true"
+                run_waf --run "$WAF_CMD" &
+                # "$NS3DIR"/waf --run "$WAF_CMD" &
             done
         done
         # wait for these to finish before starting up another set of simulations
