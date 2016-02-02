@@ -26,7 +26,7 @@ on_exit ()
 function run_waf {
     CWD="$PWD"
     cd $NS3DIR >/dev/null
-    ./waf --cwd="$CWD" "$@"
+    ./waf --cwd="$CWD" "$2" 2> "${1}.error-log" > "${1}.results-log"
     cd - >/dev/null
 }
 
@@ -37,6 +37,9 @@ trap on_exit EXIT
 DIR_NAME="$(date +%Y_%m_%d_%H_%M_%S)_results"
 mkdir "$DIR_NAME"
 pushd "$DIR_NAME" &>/dev/null
+
+# set the environment's log level
+export NS_LOG=
 
 # set what values we iterate over here
 WINDOW_SIZES=(2000 8000 32000 64000)
@@ -56,7 +59,7 @@ for n in "${NUM_FLOWS[@]}"; do
             for k in "${SEGMENT_SIZES[@]}"; do
                 OUTPUT_FILENAME_BASE="trace_tcp-${TCP_TYPE}_win-${i}_seg-${k}_queue-${j}_flows-${n}"
                 WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=true --traceFile=$OUTPUT_FILENAME_BASE"
-                run_waf --run "$WAF_CMD" &
+                run_waf "$OUTPUT_FILENAME_BASE" "$WAF_CMD" &
             done
         done
         # wait for these to finish before starting up another set of simulations

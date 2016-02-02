@@ -35,8 +35,7 @@ const int RAND_NUM_SEED = 11223344;
 
 void SetSimConfigs() {
     // Set the log levels for this module
-    LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
-    LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_INFO);
+    // LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
 
     // Set the log levels for the bulk TCP transfer applications
     // LogComponentEnable("BulkSendApplication", LOG_LEVEL_ALL);
@@ -100,7 +99,10 @@ int main (int argc, char* argv[]) {
 
     linkB.SetDeviceAttribute("DataRate", StringValue("1Mbps"));
     linkB.SetChannelAttribute("Delay", StringValue("20ms"));
-    // linkB.SetDeviceAttribute("TxQueue", UintegerValue(queueSize));
+
+    NS_LOG(LOG_DEBUG, "Setting bottleneck link's queue size to " << queueSize << " packets");
+    linkB.SetQueue("ns3::DropTailQueue", "MaxBytes", UintegerValue(queueSize), "Mode", StringValue("QUEUE_MODE_BYTES"));
+
 
     linkC.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
     linkC.SetChannelAttribute("Delay", StringValue("10ms"));
@@ -115,11 +117,6 @@ int main (int argc, char* argv[]) {
     devicesA = linkA.Install(nodes.Get(0), nodes.Get(1));
     devicesB = linkB.Install(nodes.Get(1), nodes.Get(2));
     devicesC = linkC.Install(nodes.Get(2), nodes.Get(3));
-
-    // TypeId typeDev = NetDevice::GetTypeId();
-    // for (size_t j = 0; j < typeDev.GetAttributeN(); ++j) {
-    //     NS_LOG(LOG_INFO, typeDev.GetName() << " => " << typeDev.GetAttributeFullName(j));
-    // }
 
 
     // ===== Internet Stack Assignment =====
@@ -146,6 +143,8 @@ int main (int argc, char* argv[]) {
     nicsB = addrsB.Assign(devicesB);
     nicsC = addrsC.Assign(devicesC);
 
+
+    // ===== Routing =====
     // Enable IPv4 routing
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
@@ -161,6 +160,8 @@ int main (int argc, char* argv[]) {
         NS_LOG(LOG_INFO, "Using TCP TAHOE");
     }
 
+
+    // ===== Other TCP Configs =====
     // Set the default segment size used for all TCP connections
     NS_LOG(LOG_INFO, "Setting TCP segment size to " << segSize << " bytes");
     Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(segSize));
@@ -168,6 +169,7 @@ int main (int argc, char* argv[]) {
     // Set the default max window size for all TCP connections
     NS_LOG(LOG_INFO, "Setting TCP max advertised window size to " << winSize << " bytes");
     Config::SetDefault("ns3::TcpSocketBase::MaxWindowSize", UintegerValue(winSize));
+
 
     // The TCP sink address
     Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_PORT));
@@ -233,7 +235,8 @@ int main (int argc, char* argv[]) {
 
     // Print out the overall goodput
     Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(0));
-    NS_LOG(LOG_ALL, "goodput, " << sinkApp->GetTotalRx() / endTime);
+    NS_LOG(LOG_DEBUG, "Total time: " << Seconds(endTime));
+    NS_LOG(LOG_ALL, "goodput, " << (static_cast<double>(1e12 / endTime.GetPicoSeconds()) * sinkApp->GetTotalRx()));
 
 
     return 0;
