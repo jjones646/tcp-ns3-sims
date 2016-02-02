@@ -28,7 +28,7 @@ NS_LOG_COMPONENT_DEFINE ("TCPThroughtputMeasurements");
 
 namespace
 {
-const int TCP_SERVER_PORT = 8080;
+const int TCP_SERVER_BASE_PORT = 8080;
 const int RAND_NUM_SEED = 11223344;
 }
 
@@ -172,7 +172,7 @@ int main (int argc, char* argv[]) {
 
 
     // The TCP sink address
-    Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_PORT));
+
 
 
     // ===== Application Client(s) =====
@@ -186,6 +186,10 @@ int main (int argc, char* argv[]) {
     Ptr<UniformRandomVariable> randVar = CreateObject<UniformRandomVariable>();
 
     for (size_t i = 0; i < nFlows; ++i) {
+        NS_LOG(LOG_DEBUG, "Creating TCP source flow to " << nicsA.GetAddress(0) << ":" << TCP_SERVER_BASE_PORT);
+
+        Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_BASE_PORT + i));
+
         BulkSendHelper tcpSource("ns3::TcpSocketFactory", tcpSinkAddr);
         ApplicationContainer tcpFlow;
 
@@ -204,17 +208,26 @@ int main (int argc, char* argv[]) {
 
 
     // ===== Application Server(s) =====
-    // Create a TCP packet sink
-    NS_LOG(LOG_DEBUG, "Creating TCP sink on " << nicsA.GetAddress(0) << ":" << TCP_SERVER_PORT);
-
-    PacketSinkHelper tcpSink("ns3::TcpSocketFactory", tcpSinkAddr);
     ApplicationContainer serverApps;
 
-    // Assign it to the list of app servers
-    serverApps = tcpSink.Install(nodes.Get(0));
+    for (size_t i = 0; i < nFlows; ++i) {
+        // Create a TCP packet sink
+        NS_LOG(LOG_DEBUG, "Creating TCP sink on " << nicsA.GetAddress(0) << ":" << TCP_SERVER_BASE_PORT);
 
-    // Set start/stop times
-    serverApps.Start(Seconds(0.0));
+        // The TCP sink address
+        Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_BASE_PORT + i));
+
+        PacketSinkHelper tcpSink("ns3::TcpSocketFactory", tcpSinkAddr);
+        ApplicationContainer tcpSinkFlow;
+
+        // Assign it to the list of app servers
+        tcpSinkFlow = tcpSink.Install(nodes.Get(0));
+
+        // Set start/stop times
+        tcpSinkFlow.Start(Seconds(0.0));
+
+        serverApps.Add(tcpSinkFlow);
+    }
 
     // Set up tracing if enabled
     if (traceEN == true) {
@@ -233,10 +246,23 @@ int main (int argc, char* argv[]) {
 
     NS_LOG(LOG_INFO, "Simulation complete");
 
-    // Print out the overall goodput
-    Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(0));
+    // Print out the overall simulation runtime
     NS_LOG(LOG_DEBUG, "Total time: " << Seconds(endTime));
-    NS_LOG(LOG_ALL, "goodput, " << (static_cast<double>(1e12 / endTime.GetPicoSeconds()) * sinkApp->GetTotalRx()));
+
+    std::string searchGroupName;
+    if (nFlows == 1)
+        searchGroupName = "SINGLE,";
+    else
+        searchGroupName = "MULTI,";
+
+    // Print out every flow's stats
+    for (size_t i = 0; i < nFlows; ++i) {
+        Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(i));
+        double goodput = static_cast<double>(1e12 / endTime.GetPicoSeconds()) * sinkApp->GetTotalRx();
+
+        std::cout << searchGroupName << "flow," << i << ",windowSize," << winSize << ",queueSize,"
+                  << queueSize << ",segSize," << segSize << ",goodput," << goodput << std::endl;
+    }
 
 
     return 0;

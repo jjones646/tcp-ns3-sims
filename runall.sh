@@ -26,7 +26,7 @@ on_exit ()
 function run_waf {
     CWD="$PWD"
     cd $NS3DIR >/dev/null
-    ./waf --cwd="$CWD" "$2" 2> "${1}.error-log" > "${1}.results-log"
+    ./waf --cwd="$CWD" "$@" >> "$CWD"/output.log
     cd - >/dev/null
 }
 
@@ -41,17 +41,19 @@ pushd "$DIR_NAME" &>/dev/null
 # set the environment's log level
 export NS_LOG=
 
+# make sure everything is built first
+run_waf --run "p1 --nFlowBytes=1000" 
+
 # set what values we iterate over here
 WINDOW_SIZES=(2000 8000 32000 64000)
 QUEUE_LIMITS=(2000 8000 32000 64000)
 SEGMENT_SIZES=(128 256 512)
 NUM_FLOWS=(1 10)
 
-TCP_TYPE="tahoe"
-# TCP_TYPE="reno"
+# BYTES_PER_FLOW=2000
+BYTES_PER_FLOW=100000000
 
-BYTES_PER_FLOW=20000
-# BYTES_PER_FLOW=100000000
+TCP_TYPE="tahoe"
 
 for n in "${NUM_FLOWS[@]}"; do
     for i in "${WINDOW_SIZES[@]}"; do
@@ -59,7 +61,7 @@ for n in "${NUM_FLOWS[@]}"; do
             for k in "${SEGMENT_SIZES[@]}"; do
                 OUTPUT_FILENAME_BASE="trace_tcp-${TCP_TYPE}_win-${i}_seg-${k}_queue-${j}_flows-${n}"
                 WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=true --traceFile=$OUTPUT_FILENAME_BASE"
-                run_waf "$OUTPUT_FILENAME_BASE" "$WAF_CMD" &
+                run_waf --run "$WAF_CMD" &
             done
         done
         # wait for these to finish before starting up another set of simulations
@@ -67,3 +69,28 @@ for n in "${NUM_FLOWS[@]}"; do
     done
 done
 
+wait
+
+cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
+cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv
+
+TCP_TYPE="reno"
+
+for n in "${NUM_FLOWS[@]}"; do
+    for i in "${WINDOW_SIZES[@]}"; do
+        for j in "${QUEUE_LIMITS[@]}"; do
+            for k in "${SEGMENT_SIZES[@]}"; do
+                OUTPUT_FILENAME_BASE="trace_tcp-${TCP_TYPE}_win-${i}_seg-${k}_queue-${j}_flows-${n}"
+                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=true --traceFile=$OUTPUT_FILENAME_BASE"
+                run_waf --run "$WAF_CMD" &
+            done
+        done
+        # wait for these to finish before starting up another set of simulations
+        wait
+    done
+done
+
+wait
+
+cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
+cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv
