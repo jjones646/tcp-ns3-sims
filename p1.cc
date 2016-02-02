@@ -32,6 +32,7 @@ const int ECHO_SERVER_PORT = 9;
 const int TCP_SERVER_PORT = 2000;
 const int RAND_NUM_SEED = 11223344;
 const std::string flowMonFn = "tcp-flow-results.flowmon";
+const std::string traceBaseFn = "tcp-trace-results";
 }
 
 void SetSimConfigs() {
@@ -63,7 +64,7 @@ int main (int argc, char* argv[]) {
     size_t nFlows =     1;
     size_t nFlowBytes = 100000000;
     bool   flowMonEN =  true;
-    bool   traceEN =    true;
+    bool   traceEN =    false;
     
     cmd.AddValue("segSize",    "TCP segment size in bytes", segSize);
     cmd.AddValue("winSize",    "TCP maximum receiver advertised window size in bytes", winSize);
@@ -96,12 +97,10 @@ int main (int argc, char* argv[]) {
 
     linkB.SetDeviceAttribute("DataRate", StringValue("1Mbps"));
     linkB.SetChannelAttribute("Delay", StringValue("20ms"));
+    // linkB.SetDeviceAttribute("TxQueue", UintegerValue(queueSize));
 
     linkC.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
     linkC.SetChannelAttribute("Delay", StringValue("10ms"));
-
-    // NS_LOG(LOG_INFO, "Constructing the hubs for the bottleneck link");
-    // PointToPointStarHelper hubB1(3, linkB);
 
 
     // ===== Network Devices =====
@@ -119,7 +118,8 @@ int main (int argc, char* argv[]) {
     // Set the type of TCP that will be used for all simulations
     NS_LOG(LOG_DEBUG, "Setting default TCP type to Tahoe");
 
-    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpTahoe"));
+    // Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpTahoe"));
+    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpReno"));
 
 
     // ===== Internet Stack Assignment =====
@@ -154,18 +154,22 @@ int main (int argc, char* argv[]) {
 
     // ===== Application Client(s) =====
     // Create an application to send TCP data to the server
-    NS_LOG(LOG_DEBUG, "Creating " << nFlows << "TCP flow" << (nFlows == 1 ? "" : "s"));
+    NS_LOG(LOG_DEBUG, "Creating " << nFlows << " TCP flow" << (nFlows == 1 ? "" : "s"));
 
     BulkSendHelper tcpSource("ns3::TcpSocketFactory", tcpSinkAddr);
     ApplicationContainer clientApps;
 
     // Set the attributes for how we send the data
     tcpSource.SetAttribute("MaxBytes", UintegerValue(nFlowBytes));
+    // tcpSource.SetAttribute("SendSize", UintegerValue(segSize));
+
+    // Socket tcpSock = tcpSource.GetSocket();
+    
 
     // Sending to the server node
     clientApps = tcpSource.Install(nodes.Get(nodes.GetN() - 1));
 
-    NS_LOG(LOG_INFO, "TCP flow created at " << nicsC.GetAddress(0));
+    NS_LOG(LOG_INFO, "TCP flow created from " << nicsC.GetAddress(0));
 
     // Set start/stop times
     clientApps.Start(Seconds(0.1));
@@ -188,44 +192,26 @@ int main (int argc, char* argv[]) {
     // Set start/stop times
     serverApps.Start(Seconds(0.0));
 
-    // Flow Monitor
-    FlowMonitorHelper flowMon;
-    if (flowMonEN == true)
-        flowMon.InstallAll();
-
-    // onOffHelper onOff("ns3::TcpSocketFactory", Address());
-    // onOff.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"));
-    // onOff.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-
-    // // Assign an app to each spoke of the star link
-    // ApplicationContainer spokeApps;
-    // for (size_t i = 0; i < starLink.SpokeCount(); ++i) {
-    //     AddressValue remoteAddress(InetSocketAddress(hubB1.GetHubIpv4Address(i), TCP_SERVER_PORT));
-    //     onOff.SetAttribute("Remote", remoteAddress);
-    //     spokeApps.Add(onOff.Install(starLink.GetSpokeNode(i)));
-    // }
-
     // Set up tracing if enabled
     if (traceEN == true) {
         AsciiTraceHelper ascii;
-        linkA.EnableAsciiAll(ascii.CreateFileStream ("tcp-bulk-send.tr"));
+        linkA.EnableAsciiAll(ascii.CreateFileStream(std::string(traceBaseFn + "tr").c_str()));
         linkA.EnablePcapAll("tcp-bulk-send", false);
     }
 
     // ===== Run Simulation =====
     NS_LOG(LOG_INFO, "Starting simulation");
-    Simulator::Run();
 
-    if (flowMonEN == true) {
-        NS_LOG(LOG_INFO, "Saving flow results to " << flowMonFn.c_str());
-        flowMon.SerializeToXmlFile(flowMonFn.c_str(), false, false);
-    }
+    Simulator::Run();
+    Time endTime = Simulator::Now();
 
     Simulator::Destroy();
+
     NS_LOG(LOG_INFO, "Simulation complete");
 
+    // Print out the overall goodput
     Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(0));
-    NS_LOG(LOG_INFO, "Total Bytes Received: " << sinkApp->GetTotalRx());
+    NS_LOG(LOG_INFO, "goodput, " << sinkApp->GetTotalRx() / endTime);
 
 
     return 0;
