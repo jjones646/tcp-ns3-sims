@@ -5,7 +5,6 @@
  */
 
 #include <algorithm>
-// #include <sstream>
 #include <string>
 
 #include "ns3/core-module.h"
@@ -31,7 +30,6 @@ namespace
 {
 const int TCP_SERVER_PORT = 8080;
 const int RAND_NUM_SEED = 11223344;
-const std::string traceBaseFn = "tcp-trace-results";
 }
 
 
@@ -64,6 +62,7 @@ int main (int argc, char* argv[]) {
     size_t nFlows =     1;
     size_t nFlowBytes = 100000000;
     std::string tcpType = "Tahoe";
+    std::string pcapFn = "tcp-trace-results";
     bool   traceEN =    false;
 
     cmd.AddValue("segSize",    "TCP segment size in bytes", segSize);
@@ -71,8 +70,9 @@ int main (int argc, char* argv[]) {
     cmd.AddValue("queueSize",  "Queue limit on the bottleneck link in bytes", queueSize);
     cmd.AddValue("nFlows",     "Number of simultaneous TCP flows", nFlows);
     cmd.AddValue("nFlowBytes", "Number of bytes to send for each TCP flow", nFlowBytes);
-    cmd.AddValue("tcpType",     "Simulate using Tahoe or Reno", tcpType);
+    cmd.AddValue("tcpType",    "Simulate using Tahoe or Reno", tcpType);
     cmd.AddValue("trace",      "Enable/Disable dumping the trace at the TCP sink", traceEN);
+    cmd.AddValue("traceFile",  "Base name given to where the results are saved when enabled", pcapFn);
     cmd.Parse(argc, argv);
 
     // convert the tcpType argument's value to lower case always
@@ -217,8 +217,8 @@ int main (int argc, char* argv[]) {
     // Set up tracing if enabled
     if (traceEN == true) {
         AsciiTraceHelper ascii;
-        linkA.EnableAsciiAll(ascii.CreateFileStream(std::string(traceBaseFn + "tr")));
-        linkA.EnablePcapAll("tcp-bulk-send", false);
+        linkA.EnableAsciiAll(ascii.CreateFileStream(pcapFn + ".tr"));
+        linkA.EnablePcapAll(pcapFn, false);
     }
 
     // ===== Run Simulation =====
