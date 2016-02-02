@@ -35,7 +35,6 @@ const std::string flowMonFn = "tcp-flow-results.flowmon";
 }
 
 void SetSimConfigs() {
-    // ===== Simulation Configs =====
     // Set the log levels for this module
     LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
 
@@ -64,13 +63,15 @@ int main (int argc, char* argv[]) {
     size_t nFlows =     1;
     size_t nFlowBytes = 100000000;
     bool   flowMonEN =  true;
-
+    bool   traceEN =    true;
+    
     cmd.AddValue("segSize",    "TCP segment size in bytes", segSize);
     cmd.AddValue("winSize",    "TCP maximum receiver advertised window size in bytes", winSize);
     cmd.AddValue("queueSize",  "Queue limit on the bottleneck link in bytes", queueSize);
     cmd.AddValue("nFlows",     "Number of simultaneous TCP flows", nFlows);
     cmd.AddValue("nFlowBytes", "Number of bytes to send for each TCP flow", nFlowBytes);
     cmd.AddValue("flowMon",    "Enable/Disable flow monitoring", flowMonEN);
+    cmd.AddValue("trace",      "Enable/Disable dumping the trace at the TCP sink", traceEN);
     cmd.Parse(argc, argv);
 
 
@@ -204,18 +205,27 @@ int main (int argc, char* argv[]) {
     //     spokeApps.Add(onOff.Install(starLink.GetSpokeNode(i)));
     // }
 
+    // Set up tracing if enabled
+    if (traceEN == true) {
+        AsciiTraceHelper ascii;
+        linkA.EnableAsciiAll(ascii.CreateFileStream ("tcp-bulk-send.tr"));
+        linkA.EnablePcapAll("tcp-bulk-send", false);
+    }
 
     // ===== Run Simulation =====
     NS_LOG(LOG_INFO, "Starting simulation");
     Simulator::Run();
-    
+
     if (flowMonEN == true) {
         NS_LOG(LOG_INFO, "Saving flow results to " << flowMonFn.c_str());
-        flowMon.SerializeToXmlFile (flowMonFn.c_str(), false, false);
+        flowMon.SerializeToXmlFile(flowMonFn.c_str(), false, false);
     }
 
-    NS_LOG(LOG_INFO, "Simulation complete");
     Simulator::Destroy();
+    NS_LOG(LOG_INFO, "Simulation complete");
+
+    Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(0));
+    NS_LOG(LOG_INFO, "Total Bytes Received: " << sinkApp->GetTotalRx());
 
 
     return 0;
