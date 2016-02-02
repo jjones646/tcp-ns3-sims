@@ -42,7 +42,7 @@ for n in "${NUM_FLOWS[@]}"; do
                 "$NS3DIR"/waf --run "$WAF_CMD" &
             done
         done
-        # wait here before starting up more processes
+        # wait for these to finish before starting up another set of simulations
         wait
     done
 done
