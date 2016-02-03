@@ -50,7 +50,6 @@ QUEUE_LIMITS=(2000 8000 32000 64000)
 SEGMENT_SIZES=(128 256 512)
 NUM_FLOWS=(1 10)
 
-# BYTES_PER_FLOW=2000
 BYTES_PER_FLOW=100000000
 
 TCP_TYPE="tahoe"
@@ -69,8 +68,8 @@ for n in "${NUM_FLOWS[@]}"; do
 done
 wait
 
-cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
-cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv
+# cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
+# cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv
 
 TCP_TYPE="reno"
 for n in "${NUM_FLOWS[@]}"; do
@@ -88,5 +87,5 @@ for n in "${NUM_FLOWS[@]}"; do
 done
 wait
 
-cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
-cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv
+# cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
+# cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv

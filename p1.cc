@@ -276,17 +276,11 @@ int main (int argc, char* argv[]) {
     // Print out the overall simulation runtime
     NS_LOG(LOG_DEBUG, "Total time: " << Seconds(endTime));
 
-    std::string searchGroupName;
-    if (nFlows == 1)
-        searchGroupName = "SINGLE,";
-    else
-        searchGroupName = "MULTI,";
-
     // Print out every flow's stats
     for (size_t i = 0; i < goodputs.size(); ++i) {
         double goodputVal = static_cast<double>(1e12 / endTime.GetPicoSeconds()) * goodputs.at(i).recvCount;
 
-        std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << searchGroupName << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
+        std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
                   << queueSize << ",segSize," << segSize << ",goodput," << goodputVal << std::endl;
     }
 
