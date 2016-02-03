@@ -16,23 +16,16 @@
 #include "ns3/applications-module.h"
 #include "ns3/flow-monitor-helper.h"
 
-// #include "ns3/netanim-module.h"
-// #include "ns3/csma-module.h"
-// #include "ns3/ipv4-global-routing-helper.h"
-
 using namespace ns3;
-
 
 // Set the documentation name
 NS_LOG_COMPONENT_DEFINE ("TCPThroughtputMeasurements");
-
 
 namespace
 {
 const int TCP_SERVER_BASE_PORT = 8080;
 const int RAND_NUM_SEED = 11223344;
 }
-
 
 class GoodputTracker {
 public:
