@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <string>
+#include <sstream>
 
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
@@ -33,13 +34,36 @@ const int RAND_NUM_SEED = 11223344;
 }
 
 
+class GoodputTracker {
+public:
+    GoodputTracker() : recvCount(0), port(0) {};
+    GoodputTracker(const Time& t) : recvCount(0), port(0), startTime(t) {};
+
+    size_t recvCount;
+    int port;
+    Time startTime;
+    Time endTime;
+};
+
+// global array of GoodputTracker objects
+std::vector<GoodputTracker> goodputs;
+
+void TrackGoodput(std::string context, Ptr<const Packet> p, const Address& address) {
+    // Get the id of the received packed
+    size_t idIndex = context.find("ApplicationList/");
+    idIndex += 16;
+
+    // Increment the correct goodput tracker byte count
+    if (idIndex != std::string::npos) {
+        int flowId;
+        std::istringstream (std::string(context.substr(idIndex, 1))) >> flowId;
+        goodputs.at(flowId).recvCount++;
+    }
+}
+
 void SetSimConfigs() {
     // Set the log levels for this module
-    // LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
-
-    // Set the log levels for the bulk TCP transfer applications
-    // LogComponentEnable("BulkSendApplication", LOG_LEVEL_ALL);
-    // LogComponentEnable("PacketSink", LOG_LEVEL_ALL);
+    LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
 
     // 1 ns time resolution, the default value
     Time::SetResolution(Time::NS);
@@ -100,9 +124,8 @@ int main (int argc, char* argv[]) {
     linkB.SetDeviceAttribute("DataRate", StringValue("1Mbps"));
     linkB.SetChannelAttribute("Delay", StringValue("20ms"));
 
-    NS_LOG(LOG_DEBUG, "Setting bottleneck link's queue size to " << queueSize << " packets");
+    NS_LOG(LOG_DEBUG, "Setting bottleneck link's queue size to " << queueSize << " bytes");
     linkB.SetQueue("ns3::DropTailQueue", "MaxBytes", UintegerValue(queueSize), "Mode", StringValue("QUEUE_MODE_BYTES"));
-
 
     linkC.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
     linkC.SetChannelAttribute("Delay", StringValue("10ms"));
@@ -157,7 +180,6 @@ int main (int argc, char* argv[]) {
     // Set the default max window size for all TCP connections
     NS_LOG(LOG_INFO, "Setting TCP max advertised window size to " << winSize << " bytes");
     Config::SetDefault("ns3::TcpSocketBase::MaxWindowSize", UintegerValue(winSize));
-    Config::SetDefault("ns3::TcpSocket::RcvBufSize", UintegerValue(winSize));
 
 
     // ===== TCP Type =====
@@ -183,7 +205,8 @@ int main (int argc, char* argv[]) {
     Ptr<UniformRandomVariable> randVar = CreateObject<UniformRandomVariable>();
 
     for (size_t i = 0; i < nFlows; ++i) {
-        NS_LOG(LOG_DEBUG, "Creating TCP source flow to " << nicsA.GetAddress(0) << ":" << TCP_SERVER_BASE_PORT);
+
+        NS_LOG(LOG_DEBUG, "Creating TCP source flow to " << nicsA.GetAddress(0) << ":" << TCP_SERVER_BASE_PORT + i);
 
         Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_BASE_PORT + i));
 
@@ -197,7 +220,11 @@ int main (int argc, char* argv[]) {
         tcpFlow = tcpSource.Install(nodes.Get(nodes.GetN() - 1));
 
         // Set the starting time to some uniformly distributed random time between 0.0s and 0.1s
-        tcpFlow.Start(Seconds(0.1 * (randVar->GetValue(0, randVar->GetMax()) / randVar->GetMax())));
+        goodputs.push_back(GoodputTracker(Seconds(0.1 * (randVar->GetValue(0, randVar->GetMax()) / randVar->GetMax()))));
+        tcpFlow.Start(goodputs.back().startTime);
+
+        // Set the TCP port we track for this flow
+        goodputs.back().port = TCP_SERVER_BASE_PORT + i;
 
         // Add this app container to the object holding all of our source flow apps
         clientApps.Add(tcpFlow);
@@ -209,10 +236,10 @@ int main (int argc, char* argv[]) {
 
     for (size_t i = 0; i < nFlows; ++i) {
         // Create a TCP packet sink
-        NS_LOG(LOG_DEBUG, "Creating TCP sink on " << nicsA.GetAddress(0) << ":" << TCP_SERVER_BASE_PORT);
+        NS_LOG(LOG_DEBUG, "Creating TCP sink on " << nicsA.GetAddress(0) << ":" << goodputs.at(i).port);
 
         // The TCP sink address
-        Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_BASE_PORT + i));
+        Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), goodputs.at(i).port));
 
         PacketSinkHelper tcpSink("ns3::TcpSocketFactory", tcpSinkAddr);
         ApplicationContainer tcpSinkFlow;
@@ -225,6 +252,12 @@ int main (int argc, char* argv[]) {
 
         serverApps.Add(tcpSinkFlow);
     }
+
+    // Set the advertise window by setting the receiving end's max RX buffer
+    Config::Set("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/RcvBufSize", UintegerValue(winSize));
+
+    // Set the trace callback for receiving a packet at the sink destination
+    Config::Connect("/NodeList/*/ApplicationList/*/$ns3::PacketSink/Rx", MakeCallback(&TrackGoodput));
 
     // Set up tracing if enabled
     if (traceEN == true)
@@ -250,19 +283,14 @@ int main (int argc, char* argv[]) {
         searchGroupName = "MULTI,";
 
     // Print out every flow's stats
-    for (size_t i = 0; i < nFlows; ++i) {
-        Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(i));
-        double goodput = static_cast<double>(1e12 / endTime.GetPicoSeconds()) * sinkApp->GetTotalRx();
+    for (size_t i = 0; i < goodputs.size(); ++i) {
+        double goodputVal = static_cast<double>(1e12 / endTime.GetPicoSeconds()) * goodputs.at(i).recvCount;
 
-        std::cout << searchGroupName << "flow," << i << ",windowSize," << winSize << ",queueSize,"
-                  << queueSize << ",segSize," << segSize << ",goodput," << goodput << std::endl;
+        std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << searchGroupName << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
+                  << queueSize << ",segSize," << segSize << ",goodput," << goodputVal << std::endl;
     }
 
 
     return 0;
 }
-
-
-
-
 
