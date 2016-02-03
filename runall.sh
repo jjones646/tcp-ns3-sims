@@ -58,7 +58,7 @@ for n in "${NUM_FLOWS[@]}"; do
         for j in "${QUEUE_LIMITS[@]}"; do
             for k in "${SEGMENT_SIZES[@]}"; do
                 OUTPUT_FILENAME_BASE="trace_tcp-${TCP_TYPE}_win-${i}_seg-${k}_queue-${j}_flows-${n}"
-                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=true --traceFile=$OUTPUT_FILENAME_BASE"
+                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=false --traceFile=$OUTPUT_FILENAME_BASE"
                 run_waf --run "$WAF_CMD" &
             done
         done
