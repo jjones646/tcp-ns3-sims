@@ -61,7 +61,7 @@ void TrackGoodput(std::string context, Ptr<const Packet> p, const Address& addre
         int flowId;
         // determine which tcp connection this callback was invoked for
         std::istringstream (std::string(context.substr(idIndex, 1))) >> flowId;
-        NS_LOG(LOG_DEBUG, "Callback Flow ID: " << flowId)
+        NS_LOG(LOG_DEBUG, "Callback Flow ID: " << flowId);
         goodputs.at(flowId).recvCount++;
     }
 }
