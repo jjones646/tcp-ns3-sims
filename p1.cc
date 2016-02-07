@@ -16,34 +16,29 @@
 #include "ns3/applications-module.h"
 #include "ns3/flow-monitor-helper.h"
 
-// #include "ns3/netanim-module.h"
-// #include "ns3/csma-module.h"
-// #include "ns3/ipv4-global-routing-helper.h"
-
 using namespace ns3;
-
 
 // Set the documentation name
 NS_LOG_COMPONENT_DEFINE ("TCPThroughtputMeasurements");
-
 
 namespace
 {
 const int TCP_SERVER_BASE_PORT = 8080;
 const int RAND_NUM_SEED = 11223344;
-const int RAND_SUM_RUN  = 11223344;
+const int RAND_SUM_RUN  = 0;
+size_t nFlowBytes;
 }
-
 
 class GoodputTracker {
 public:
-    GoodputTracker() : recvCount(0), port(0) {};
-    GoodputTracker(const Time& t) : recvCount(0), port(0), startTime(t) {};
+    GoodputTracker() : recvCount(0), port(0), isValid(true) {};
+    GoodputTracker(const Time& t) : recvCount(0), port(0), startTime(t), isValid(true) {};
 
     size_t recvCount;
     int port;
     Time startTime;
     Time endTime;
+    bool isValid;
 };
 
 // global array of GoodputTracker objects
@@ -61,8 +56,20 @@ void TrackGoodput(std::string context, Ptr<const Packet> p, const Address& addre
         int flowId;
         // determine which tcp connection this callback was invoked for
         std::istringstream (std::string(context.substr(idIndex, 1))) >> flowId;
-        goodputs.at(flowId).recvCount++;
-        //NS_LOG(LOG_DEBUG, "Callback Flow ID: " << flowId << "\tReceived Count: " << goodputs.at(flowId).recvCount);
+        if (goodputs.at(flowId).isValid == true) {
+            goodputs.at(flowId).recvCount += p->GetSize();
+            NS_LOG(LOG_DEBUG, "Sink RX->\tFlow: " << flowId
+                   << "\tFrom: " << InetSocketAddress::ConvertFrom(address).GetIpv4() << ":" << InetSocketAddress::ConvertFrom(address).GetPort()
+                   << "\tSize: " << p->GetSize() << " bytes"
+                   << "\tRecv: " << goodputs.at(flowId).recvCount << " bytes");
+
+            // If we're at or past the limit, set the stop time for the tcp flow
+            if (goodputs.at(flowId).recvCount >= nFlowBytes) {
+                goodputs.at(flowId).endTime = Simulator::Now();
+                // set the object to be invalid so we won't increment the counter anymore
+                goodputs.at(flowId).isValid = false;
+            }
+        }
     }
 }
 
@@ -71,7 +78,7 @@ void SetSimConfigs() {
     LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
 
     // 1 ns time resolution, the default value
-    // Time::SetResolution(Time::NS);
+    Time::SetResolution(Time::NS);
 
     // The the random number seed & run globally
     RngSeedManager::SetSeed(RAND_NUM_SEED);
@@ -89,7 +96,7 @@ int main (int argc, char* argv[]) {
     size_t winSize =    2000;
     size_t queueSize =  2000;
     size_t nFlows =     1;
-    size_t nFlowBytes = 100000000;
+    nFlowBytes =        100000000;
     std::string tcpType = "Tahoe";
     std::string pcapFn = "tcp-trace-results";
     bool   traceEN =    false;
@@ -261,7 +268,7 @@ int main (int argc, char* argv[]) {
 
     // Set the advertise window by setting the receiving end's max RX buffer. Not doing this for
     // some reason causes ns-3 to not adheer to the "MaxWindowSize" set earilier?
-    Config::Set("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/RcvBufSize", UintegerValue(winSize));
+    // Config::Set("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/RcvBufSize", UintegerValue(winSize));
 
     // Set the trace callback for receiving a packet at the sink destination
     Config::Connect("/NodeList/*/ApplicationList/*/$ns3::PacketSink/Rx", MakeCallback(&TrackGoodput));
@@ -289,11 +296,11 @@ int main (int argc, char* argv[]) {
         double goodputVal = goodputs.at(i).recvCount / runtime;
 
         std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
-                  << queueSize << ",segSize," << segSize << ",goodput," << goodputVal << std::endl;
+                  << queueSize << ",segSize," << segSize << ",goodput," << goodputVal;
 
-                  // Print out the overall goodput
+        // Print out the overall goodput
         Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(i));
-        std::cout << "runtime,"<< runtime << ",recvCount," << goodputs.at(i).recvCount << ",sinkTotalRx," << sinkApp->GetTotalRx() << std::endl;
+        std::cout << ",runtime," << runtime << ",recvCount," << goodputs.at(i).recvCount << ",sinkTotalRx," << sinkApp->GetTotalRx() << std::endl;
     }
 
 
