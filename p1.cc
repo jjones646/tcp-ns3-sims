@@ -288,7 +288,9 @@ int main (int argc, char* argv[]) {
         std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
                   << queueSize << ",segSize," << segSize << ",goodput," << goodputVal << std::endl;
 
-        std::cout << "runtime,"<< runtime << ",recvCount," << goodputs.at(i).recvCount << ",sinkCound," << sinkCount << std::endl;
+                  // Print out the overall goodput
+        Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(i));
+        std::cout << "runtime,"<< runtime << ",recvCount," << goodputs.at(i).recvCount << ",sinkTotalRx," << sinkApp->GetTotalRx() << std::endl;
     }
 
 
