@@ -282,7 +282,7 @@ int main (int argc, char* argv[]) {
 
     // Print out every flow's stats
     for (size_t i = 0; i < goodputs.size(); ++i) {
-        double runtime = static_cast<double>(endTime.GetSeconds() - goodputs.at(i).startTime);
+        double runtime = static_cast<double>(endTime.GetSeconds() - goodputs.at(i).startTime.GetSeconds());
         double goodputVal = goodputs.at(i).recvCount / runtime;
 
         std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
