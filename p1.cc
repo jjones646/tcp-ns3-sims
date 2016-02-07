@@ -31,7 +31,7 @@ namespace
 {
 const int TCP_SERVER_BASE_PORT = 8080;
 const int RAND_NUM_SEED = 11223344;
-const int RAND_SUM_RUN  = 0;
+const int RAND_SUM_RUN  = 11223344;
 }
 
 
@@ -52,14 +52,17 @@ std::vector<GoodputTracker> goodputs;
 void TrackGoodput(std::string context, Ptr<const Packet> p, const Address& address) {
     // Get the id of the received packed
     size_t idIndex = context.find("ApplicationList/");
+    // the tcp sink's id that this callback is being executed for will
+    // be 16 characters after the index that's found from the previous command
     idIndex += 16;
 
     // Increment the correct goodput tracker byte count
     if (idIndex != std::string::npos) {
         int flowId;
+        // determine which tcp connection this callback was invoked for
         std::istringstream (std::string(context.substr(idIndex, 1))) >> flowId;
+        NS_LOG(LOG_DEBUG, "Callback Flow ID: " << flowId)
         goodputs.at(flowId).recvCount++;
-        return;
     }
 }
 
@@ -282,7 +285,7 @@ int main (int argc, char* argv[]) {
 
     // Print out every flow's stats
     for (size_t i = 0; i < goodputs.size(); ++i) {
-        double runtime = ToDouble(endTime.GetSeconds() - goodputs.at(i).startTime.GetSeconds());
+        double runtime = endTime.GetSeconds() - goodputs.at(i).startTime.GetSeconds();
         double goodputVal = goodputs.at(i).recvCount / runtime;
 
         std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
