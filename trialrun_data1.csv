@@ -1,0 +1,10 @@
+tcp,0,flow,0,windowSize,64000,queueSize,64000,segSize,512,goodput,19.9815,runtime,9095.3,recvCount,181738,sinkTotalRx,100000000
+tcp,0,flow,1,windowSize,64000,queueSize,64000,segSize,512,goodput,20.0427,runtime,9095.34,recvCount,182295,sinkTotalRx,100000000
+tcp,0,flow,2,windowSize,64000,queueSize,64000,segSize,512,goodput,19.9735,runtime,9095.27,recvCount,181664,sinkTotalRx,100000000
+tcp,0,flow,3,windowSize,64000,queueSize,64000,segSize,512,goodput,19.9839,runtime,9095.32,recvCount,181760,sinkTotalRx,100000000
+tcp,0,flow,4,windowSize,64000,queueSize,64000,segSize,512,goodput,19.9747,runtime,9095.25,recvCount,181675,sinkTotalRx,100000000
+tcp,0,flow,5,windowSize,64000,queueSize,64000,segSize,512,goodput,19.9735,runtime,9095.29,recvCount,181665,sinkTotalRx,100000000
+tcp,0,flow,6,windowSize,64000,queueSize,64000,segSize,512,goodput,19.9863,runtime,9095.24,recvCount,181780,sinkTotalRx,100000000
+tcp,0,flow,7,windowSize,64000,queueSize,64000,segSize,512,goodput,20.0061,runtime,9095.33,recvCount,181962,sinkTotalRx,100000000
+tcp,0,flow,8,windowSize,64000,queueSize,64000,segSize,512,goodput,19.9942,runtime,9095.32,recvCount,181854,sinkTotalRx,100000000
+tcp,0,flow,9,windowSize,64000,queueSize,64000,segSize,512,goodput,20.0204,runtime,9095.26,recvCount,182091,sinkTotalRx,100000000
