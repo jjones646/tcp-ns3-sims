@@ -31,6 +31,7 @@ namespace
 {
 const int TCP_SERVER_BASE_PORT = 8080;
 const int RAND_NUM_SEED = 11223344;
+const int RAND_SUM_RUN  = 0;
 }
 
 
@@ -58,6 +59,7 @@ void TrackGoodput(std::string context, Ptr<const Packet> p, const Address& addre
         int flowId;
         std::istringstream (std::string(context.substr(idIndex, 1))) >> flowId;
         goodputs.at(flowId).recvCount++;
+        return;
     }
 }
 
@@ -66,10 +68,11 @@ void SetSimConfigs() {
     LogComponentEnable("TCPThroughtputMeasurements", LOG_LEVEL_ALL);
 
     // 1 ns time resolution, the default value
-    Time::SetResolution(Time::NS);
+    // Time::SetResolution(Time::NS);
 
-    // The the random number seed globally
+    // The the random number seed & run globally
     RngSeedManager::SetSeed(RAND_NUM_SEED);
+    RngSeedManager::SetRun(RAND_SUM_RUN);
 }
 
 
@@ -253,13 +256,14 @@ int main (int argc, char* argv[]) {
         serverApps.Add(tcpSinkFlow);
     }
 
-    // Set the advertise window by setting the receiving end's max RX buffer
+    // Set the advertise window by setting the receiving end's max RX buffer. Not doing this for
+    // some reason causes ns-3 to not adheer to the "MaxWindowSize" set earilier?
     Config::Set("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/RcvBufSize", UintegerValue(winSize));
 
     // Set the trace callback for receiving a packet at the sink destination
     Config::Connect("/NodeList/*/ApplicationList/*/$ns3::PacketSink/Rx", MakeCallback(&TrackGoodput));
 
-    // Set up tracing if enabled
+    // Set up tracing on the sink node if enabled
     if (traceEN == true)
         linkA.EnablePcap(pcapFn, devicesA.Get(0), true);
 
@@ -278,10 +282,13 @@ int main (int argc, char* argv[]) {
 
     // Print out every flow's stats
     for (size_t i = 0; i < goodputs.size(); ++i) {
-        double goodputVal = static_cast<double>(1e12 / endTime.GetPicoSeconds()) * goodputs.at(i).recvCount;
+        double runtime = static_cast<double>(endTime.getSeconds() - goodputs.at(i).startTime);
+        double goodputVal = goodputs.at(i).recvCount / runtime;
 
         std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
                   << queueSize << ",segSize," << segSize << ",goodput," << goodputVal << std::endl;
+
+        std::cout << "runtime,"<< runtime << ",recvCount," << goodputs.at(i).recvCount << ",sinkCound," << sinkCount << std::endl;
     }
 
 
