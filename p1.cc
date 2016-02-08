@@ -280,7 +280,7 @@ int main (int argc, char* argv[]) {
     NS_LOG(LOG_INFO, "Simulation complete");
 
     // Print out the overall simulation runtime
-    NS_LOG(LOG_DEBUG, "Total time: " << Seconds(endTime));
+    NS_LOG(LOG_DEBUG, "Total time: " << Seconds(sim_endTime));
 
     // Print out every flow's stats
     for (size_t i = 0; i < goodputs.size(); ++i) {
