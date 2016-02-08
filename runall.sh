@@ -52,13 +52,14 @@ NUM_FLOWS=(1 10)
 
 BYTES_PER_FLOW=100000000
 
-TCP_TYPE="tahoe"
+# tcp tahoe
+TCP_TYPE=0
 for n in "${NUM_FLOWS[@]}"; do
     for i in "${WINDOW_SIZES[@]}"; do
         for j in "${QUEUE_LIMITS[@]}"; do
             for k in "${SEGMENT_SIZES[@]}"; do
                 OUTPUT_FILENAME_BASE="trace_tcp-${TCP_TYPE}_win-${i}_seg-${k}_queue-${j}_flows-${n}"
-                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=false --traceFile=$OUTPUT_FILENAME_BASE"
+                WAF_CMD="p1 --segSize=$k --windowSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=false --traceFile=$OUTPUT_FILENAME_BASE"
                 run_waf --run "$WAF_CMD" &
             done
         done
@@ -71,13 +72,14 @@ wait
 # cat output.log | grep flow | grep SINGLE > "$TCP_TYPE"_1_results.csv
 # cat output.log | grep flow | grep MULTI > "$TCP_TYPE"_10_results.csv
 
-TCP_TYPE="reno"
+# tcp reno
+TCP_TYPE=1
 for n in "${NUM_FLOWS[@]}"; do
     for i in "${WINDOW_SIZES[@]}"; do
         for j in "${QUEUE_LIMITS[@]}"; do
             for k in "${SEGMENT_SIZES[@]}"; do
                 OUTPUT_FILENAME_BASE="trace_tcp-${TCP_TYPE}_win-${i}_seg-${k}_queue-${j}_flows-${n}"
-                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=true --traceFile=$OUTPUT_FILENAME_BASE"
+                WAF_CMD="p1 --segSize=$k --windowSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=true --traceFile=$OUTPUT_FILENAME_BASE"
                 run_waf --run "$WAF_CMD" &
             done
         done

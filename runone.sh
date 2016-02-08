@@ -45,26 +45,27 @@ export NS_LOG=
 run_waf --run "p1 --nFlowBytes=100" 
 
 # set what values we iterate over here
-WINDOW_SIZES=(64000)
+WINDOW_SIZES=(64000 2000)
 QUEUE_LIMITS=(64000)
 SEGMENT_SIZES=(512)
 NUM_FLOWS=(1 10)
 
 BYTES_PER_FLOW=100000000
 
-TCP_TYPE="tahoe"
+# tcp tahoe
+TCP_TYPE=0
 for n in "${NUM_FLOWS[@]}"; do
     for i in "${WINDOW_SIZES[@]}"; do
         for j in "${QUEUE_LIMITS[@]}"; do
             for k in "${SEGMENT_SIZES[@]}"; do
                 OUTPUT_FILENAME_BASE="trace_tcp-${TCP_TYPE}_win-${i}_seg-${k}_queue-${j}_flows-${n}"
-                WAF_CMD="p1 --segSize=$k --winSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=false --traceFile=$OUTPUT_FILENAME_BASE"
+                WAF_CMD="p1 --segSize=$k --windowSize=$i --queueSize=$j --nFlows=$n --nFlowBytes=$BYTES_PER_FLOW --tcpType=$TCP_TYPE --trace=false --traceFile=$OUTPUT_FILENAME_BASE"
                 run_waf --run "$WAF_CMD" &
             done
         done
-        # wait for these to finish before starting up another set of simulations
-        wait
     done
+    # wait for these to finish before starting up another set of simulations
+    wait
 done
 wait
 

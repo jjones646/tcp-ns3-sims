@@ -58,10 +58,10 @@ void TrackGoodput(std::string context, Ptr<const Packet> p, const Address& addre
         std::istringstream (std::string(context.substr(idIndex, 1))) >> flowId;
         if (goodputs.at(flowId).isValid == true) {
             goodputs.at(flowId).recvCount += p->GetSize();
-            NS_LOG(LOG_DEBUG, "Sink RX->\tFlow: " << flowId
-                   << "\tFrom: " << InetSocketAddress::ConvertFrom(address).GetIpv4() << ":" << InetSocketAddress::ConvertFrom(address).GetPort()
-                   << "\tSize: " << p->GetSize() << " bytes"
-                   << "\tRecv: " << goodputs.at(flowId).recvCount << " bytes");
+            // NS_LOG(LOG_DEBUG, "Sink RX->\tFlow: " << flowId
+            //        << "\tFrom: " << InetSocketAddress::ConvertFrom(address).GetIpv4() << ":" << InetSocketAddress::ConvertFrom(address).GetPort()
+            //        << "\tSize: " << p->GetSize() << " bytes"
+            //        << "\tRecv: " << goodputs.at(flowId).recvCount << " bytes");
 
             // If we're at or past the limit, set the stop time for the tcp flow
             if (goodputs.at(flowId).recvCount >= nFlowBytes) {
@@ -97,22 +97,19 @@ int main (int argc, char* argv[]) {
     size_t queueSize =  2000;
     size_t nFlows =     1;
     nFlowBytes =        100000000;
-    std::string tcpType = "Tahoe";
+    bool tcpType =      0;
     std::string pcapFn = "tcp-trace-results";
     bool   traceEN =    false;
 
     cmd.AddValue("segSize",    "TCP segment size in bytes", segSize);
-    cmd.AddValue("winSize",    "TCP maximum receiver advertised window size in bytes", winSize);
+    cmd.AddValue("windowSize",    "TCP maximum receiver advertised window size in bytes", winSize);
     cmd.AddValue("queueSize",  "Queue limit on the bottleneck link in bytes", queueSize);
     cmd.AddValue("nFlows",     "Number of simultaneous TCP flows", nFlows);
     cmd.AddValue("nFlowBytes", "Number of bytes to send for each TCP flow", nFlowBytes);
-    cmd.AddValue("tcpType",    "Simulate using Tahoe or Reno", tcpType);
+    cmd.AddValue("tcpType",    "Simulate using Tahoe (0) or Reno (1)", tcpType);
     cmd.AddValue("trace",      "Enable/Disable dumping the trace at the TCP sink", traceEN);
     cmd.AddValue("traceFile",  "Base name given to where the results are saved when enabled", pcapFn);
     cmd.Parse(argc, argv);
-
-    // convert the tcpType argument's value to lower case always
-    std::transform(tcpType.begin(), tcpType.end(), tcpType.begin(), ::tolower);
 
 
     // ===== Nodes =====
@@ -197,7 +194,7 @@ int main (int argc, char* argv[]) {
 
     // ===== TCP Type =====
     // Set the type of TCP that will be used for all simulations
-    if (tcpType.compare("reno") == 0) {
+    if (tcpType == 1) {
         Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpReno"));
         NS_LOG(LOG_INFO, "Using TCP RENO");
     }
@@ -215,10 +212,9 @@ int main (int argc, char* argv[]) {
     ApplicationContainer clientApps;
 
     // Create the random variable object for setting the initial flow start times
-    Ptr<UniformRandomVariable> randVar = CreateObject<UniformRandomVariable>();
 
     for (size_t i = 0; i < nFlows; ++i) {
-
+        Ptr<UniformRandomVariable> randVar = CreateObject<UniformRandomVariable>();
         NS_LOG(LOG_DEBUG, "Creating TCP source flow to " << nicsA.GetAddress(0) << ":" << TCP_SERVER_BASE_PORT + i);
 
         Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), TCP_SERVER_BASE_PORT + i));
@@ -229,7 +225,7 @@ int main (int argc, char* argv[]) {
         // Set the attributes for how we send the data
         tcpSource.SetAttribute("MaxBytes", UintegerValue(nFlowBytes));
 
-        // Sending to the server node
+        // Sending to the server node & starting at the last node in our nodes list
         tcpFlow = tcpSource.Install(nodes.Get(nodes.GetN() - 1));
 
         // Set the starting time to some uniformly distributed random time between 0.0s and 0.1s
@@ -253,18 +249,14 @@ int main (int argc, char* argv[]) {
 
         // The TCP sink address
         Address tcpSinkAddr(InetSocketAddress(nicsA.GetAddress(0), goodputs.at(i).port));
-
         PacketSinkHelper tcpSink("ns3::TcpSocketFactory", tcpSinkAddr);
-        ApplicationContainer tcpSinkFlow;
 
         // Assign it to the list of app servers
-        tcpSinkFlow = tcpSink.Install(nodes.Get(0));
-
-        // Set start/stop times
-        tcpSinkFlow.Start(Seconds(0.0));
-
-        serverApps.Add(tcpSinkFlow);
+        serverApps.Add(tcpSink.Install(nodes.Get(0)));
     }
+
+    // Set all of the sink start times to 0
+    serverApps.Start(Seconds(0.0));
 
     // Set the advertise window by setting the receiving end's max RX buffer. Not doing this for
     // some reason causes ns-3 to not adheer to the "MaxWindowSize" set earilier?
@@ -292,10 +284,10 @@ int main (int argc, char* argv[]) {
 
     // Print out every flow's stats
     for (size_t i = 0; i < goodputs.size(); ++i) {
-        double runtime = endTime.GetSeconds() - goodputs.at(i).startTime.GetSeconds();
+        double runtime = goodputs.at(i).endTime.GetSeconds() - goodputs.at(i).startTime.GetSeconds();
         double goodputVal = goodputs.at(i).recvCount / runtime;
 
-        std::cout << "tcp," << ((tcpType.compare("reno") == 0) ? "1" : "0") << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
+        std::cout << "tcp," << tcpType << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
                   << queueSize << ",segSize," << segSize << ",goodput," << goodputVal;
 
         // Print out the overall goodput
