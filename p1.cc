@@ -260,7 +260,7 @@ int main (int argc, char* argv[]) {
 
     // Set the advertise window by setting the receiving end's max RX buffer. Not doing this for
     // some reason causes ns-3 to not adheer to the "MaxWindowSize" set earilier?
-    // Config::Set("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/RcvBufSize", UintegerValue(winSize));
+    Config::Set("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/RcvBufSize", UintegerValue(winSize));
 
     // Set the trace callback for receiving a packet at the sink destination
     Config::Connect("/NodeList/*/ApplicationList/*/$ns3::PacketSink/Rx", MakeCallback(&TrackGoodput));
@@ -273,7 +273,7 @@ int main (int argc, char* argv[]) {
     NS_LOG(LOG_INFO, "Starting simulation");
 
     Simulator::Run();
-    Time endTime = Simulator::Now();
+    Time sim_endTime = Simulator::Now();
 
     Simulator::Destroy();
 
@@ -284,15 +284,13 @@ int main (int argc, char* argv[]) {
 
     // Print out every flow's stats
     for (size_t i = 0; i < goodputs.size(); ++i) {
+        // endtime - startime
         double runtime = goodputs.at(i).endTime.GetSeconds() - goodputs.at(i).startTime.GetSeconds();
         double goodputVal = goodputs.at(i).recvCount / runtime;
 
+        // Print out the overall goodput
         std::cout << "tcp," << tcpType << ",flow," << i << ",windowSize," << winSize << ",queueSize,"
                   << queueSize << ",segSize," << segSize << ",goodput," << goodputVal;
-
-        // Print out the overall goodput
-        Ptr<PacketSink> sinkApp = DynamicCast<PacketSink>(serverApps.Get(i));
-        std::cout << ",runtime," << runtime << ",recvCount," << goodputs.at(i).recvCount << ",sinkTotalRx," << sinkApp->GetTotalRx() << std::endl;
     }
 
 
